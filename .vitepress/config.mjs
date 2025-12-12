@@ -1,9 +1,10 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: "TamTam Knowlegde",
+  title: "TamTam Knowledge",
   description: "逻辑学 / 嵌入式Linux / 计算机网络",
   lang: 'zh-CN',  // 设置语言为中文
+  base: '/wiki/',
 
   themeConfig: {
     // 1. 顶部导航栏 (一直显示在最上面)
