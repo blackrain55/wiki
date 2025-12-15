@@ -21,8 +21,8 @@ features:
     link: /linux/rk3506
     icon: 🐧
   - title: 🌐 计算机网络
-    details: 关于网络连通性与 GFW 技术的底层原理研究。
-    link: /network/gfw
+    details: 计算机网络学习。
+    link: /network/Computer Networking
     icon: 🌐
 ---
 
