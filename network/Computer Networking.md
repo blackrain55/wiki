@@ -101,13 +101,13 @@
 * **IP 哄骗 (IP Spoofing)**：伪造源 IP 地址，冒充他人发送数据。
 
 <iframe 
-    src="./delay_simulation.html" 
+    src="/wiki/network/delay_simulation.html" 
     style="width: 100%; height: 800px; border: none;" 
     scrolling="no">
 </iframe>
 
 <iframe 
-    src="./internet_structure.html" 
+    src="/wiki/network/internet_structure.html" 
     style="width: 100%; height: 1000px; border: none;" 
     scrolling="no">
 </iframe>
@@ -115,13 +115,13 @@
 
 
 <iframe 
-    src="./network.html" 
+    src="/wiki/network/network.html" 
     style="width: 100%; height: 800px; border: none;" 
     scrolling="no">
 </iframe>
 
 <iframe 
-    src="./layers_model.html" 
+    src="/wiki/network/layers_model.html" 
     style="width: 100%; height: 800px; border: none;" 
     scrolling="no">
 </iframe>
