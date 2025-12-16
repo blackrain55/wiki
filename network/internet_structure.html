@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互联网网络结构演进演示 (Kurose & Ross 模型)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        h2 { color: #333; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button { padding: 10px 20px; border: none; background-color: #ddd; cursor: pointer; border-radius: 5px; font-weight: bold; transition: 0.3s; }
+        button:hover { background-color: #ccc; }
+        button.active { background-color: #007bff; color: white; }
+        
+        #canvas-container { 
+            width: 800px; 
+            height: 500px; 
+            border: 1px solid #ddd; 
+            background-color: white; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            position: relative;
+        }
+        
+        .description-box {
+            width: 800px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #fff;
+            border-left: 5px solid #007bff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .description-box h3 { margin-top: 0; }
+        
+        /* SVG Styles */
+        svg { width: 100%; height: 100%; }
+        .link { stroke: #999; stroke-width: 2px; transition: all 0.5s; }
+        .link.peering { stroke: #28a745; stroke-dasharray: 5,5; stroke-width: 3px; } /* 绿色虚线表示对等 */
+        .node circle { stroke: #fff; stroke-width: 2px; transition: all 0.5s; }
+        .node text { font-size: 12px; font-family: sans-serif; pointer-events: none; text-anchor: middle; dominant-baseline: middle; fill: white; font-weight: bold; }
+        
+        /* Legends */
+        .legend { display: flex; gap: 15px; margin-top: 10px; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <h2>互联网网络结构演进 (结构 1 - 5)</h2>
+
+    <div class="controls">
+        <button onclick="setStage(1)" id="btn1" class="active">结构 1: 单一全球 ISP</button>
+        <button onclick="setStage(2)" id="btn2">结构 2: 多全球 ISP</button>
+        <button onclick="setStage(3)" id="btn3">结构 3: 多层级结构</button>
+        <button onclick="setStage(4)" id="btn4">结构 4: 生态系统(IXP/对等)</button>
+        <button onclick="setStage(5)" id="btn5">结构 5: 内容提供商(CPN)</button>
+    </div>
+
+    <div id="canvas-container">
+        <svg id="networkSvg"></svg>
+    </div>
+
+    <div class="description-box">
+        <h3 id="stage-title">结构 1</h3>
+        <p id="stage-desc">加载中...</p>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:#0056b3"></div>全球 ISP (Tier-1)</div>
+        <div class="legend-item"><div class="dot" style="background:#17a2b8"></div>区域 ISP</div>
+        <div class="legend-item"><div class="dot" style="background:#6c757d"></div>接入网 (用户)</div>
+        <div class="legend-item"><div class="dot" style="background:#ffc107"></div>IXP (交换中心)</div>
+        <div class="legend-item"><div class="dot" style="background:#dc3545"></div>CPN (谷歌/内容商)</div>
+        <div class="legend-item" style="border-bottom: 2px dashed #28a745">--- 对等连接/私有连接</div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <script>
+        const width = 800;
+        const height = 500;
+        const svg = d3.select("#networkSvg");
+
+        // 颜色配置
+        const colors = {
+            global: "#0056b3",
+            regional: "#17a2b8",
+            access: "#6c757d",
+            ixp: "#ffc107",
+            cpn: "#dc3545"
+        };
+
+        // 数据存储
+        let nodes = [];
+        let links = [];
+        let simulation;
+
+        // 初始化力导向图
+        function initSimulation() {
+            simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(80))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("y", d3.forceY().strength(0.05)) // 稍微约束垂直位置
+                .on("tick", ticked);
+        }
+
+        function ticked() {
+            const link = svg.selectAll(".link").data(links);
+            const node = svg.selectAll(".node").data(nodes);
+
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        }
+
+        // 渲染函数
+        function render() {
+            // 更新 Link
+            const link = svg.selectAll(".link").data(links, d => d.source.id + "-" + d.target.id);
+            link.exit().remove();
+            const linkEnter = link.enter().append("line")
+                .attr("class", d => d.type === 'peering' ? "link peering" : "link")
+                .attr("stroke-width", d => d.type === 'peering' ? 3 : 2);
+            
+            // 更新 Node
+            const node = svg.selectAll(".node").data(nodes, d => d.id);
+            node.exit().transition().duration(500).attr("opacity", 0).remove();
+
+            const nodeEnter = node.enter().append("g")
+                .attr("class", "node")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            nodeEnter.append("circle")
+                .attr("r", d => d.type === 'global' ? 30 : (d.type === 'cpn' ? 25 : (d.type === 'access' ? 10 : 20)))
+                .attr("fill", d => colors[d.type]);
+
+            nodeEnter.append("text")
+                .attr("dy", ".35em")
+                .text(d => d.label);
+
+            // 重启模拟
+            simulation.nodes(nodes);
+            simulation.force("link").links(links);
+            simulation.alpha(1).restart();
+        }
+
+        // 拖拽功能
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // === 场景定义 ===
+
+        function setStage(stage) {
+            // 更新按钮状态
+            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn${stage}`).classList.add('active');
+
+            nodes = [];
+            links = [];
+
+            // 基础：定义一些接入网（用户小区/公司）
+            const accessNets = [
+                { id: "a1", type: "access", label: "A" },
+                { id: "a2", type: "access", label: "B" },
+                { id: "a3", type: "access", label: "C" },
+                { id: "a4", type: "access", label: "D" },
+                { id: "a5", type: "access", label: "E" },
+                { id: "a6", type: "access", label: "F" }
+            ];
+
+            if (stage === 1) {
+                // 结构 1: 单一全球 ISP
+                document.getElementById("stage-title").innerText = "结构 1: 单一全球 ISP";
+                document.getElementById("stage-desc").innerText = "所有的接入网络（用户、校园、公司）都直接连接到唯一的一个全球 ISP。这在现实中是不存在的，因为单一公司无法覆盖全球，且缺乏竞争。";
+                
+                const globalISP = { id: "g1", type: "global", label: "Global ISP" };
+                nodes = [globalISP, ...accessNets];
+                links = accessNets.map(a => ({ source: a.id, target: globalISP.id }));
+
+            } else if (stage === 2) {
+                // 结构 2: 多个全球 ISP
+                document.getElementById("stage-title").innerText = "结构 2: 多个全球 ISP 互联";
+                document.getElementById("stage-desc").innerText = "为了竞争，出现了多个全球 ISP（Tier-1）。关键点：它们必须互相连接！否则连接 ISP A 的用户无法联系到连接 ISP B 的用户。";
+
+                const g1 = { id: "g1", type: "global", label: "ISP A" };
+                const g2 = { id: "g2", type: "global", label: "ISP B" };
+                nodes = [g1, g2, ...accessNets];
+                
+                // 接入网分流
+                links.push({ source: "a1", target: "g1" });
+                links.push({ source: "a2", target: "g1" });
+                links.push({ source: "a3", target: "g1" });
+                links.push({ source: "a4", target: "g2" });
+                links.push({ source: "a5", target: "g2" });
+                links.push({ source: "a6", target: "g2" });
+                // 两个全球 ISP 必须互联
+                links.push({ source: "g1", target: "g2" });
+
+            } else if (stage === 3) {
+                // 结构 3: 多层级 (加入区域 ISP)
+                document.getElementById("stage-title").innerText = "结构 3: 多层级结构 (区域 ISP)";
+                document.getElementById("stage-desc").innerText = "全球 ISP 直接连到每个村太难了。于是出现了层级：全球 ISP 连接 '区域 ISP'（如省级电信），区域 ISP 再连接接入网。";
+
+                const g1 = { id: "g1", type: "global", label: "Global A" };
+                const g2 = { id: "g2", type: "global", label: "Global B" };
+                const r1 = { id: "r1", type: "regional", label: "区域网 1" };
+                const r2 = { id: "r2", type: "regional", label: "区域网 2" };
+
+                nodes = [g1, g2, r1, r2, ...accessNets];
+
+                // 接入网 -> 区域网
+                links.push({ source: "a1", target: "r1" }, { source: "a2", target: "r1" }, { source: "a3", target: "r1" });
+                links.push({ source: "a4", target: "r2" }, { source: "a5", target: "r2" }, { source: "a6", target: "r2" });
+                
+                // 区域网 -> 全球网
+                links.push({ source: "r1", target: "g1" });
+                links.push({ source: "r2", target: "g2" });
+
+                // 全球网互联
+                links.push({ source: "g1", target: "g2" });
+
+            } else if (stage === 4) {
+                // 结构 4: 生态系统 (PoP, 多宿, 对等, IXP)
+                document.getElementById("stage-title").innerText = "结构 4: 现代生态系统 (IXP 与 对等)";
+                document.getElementById("stage-desc").innerHTML = "<b>这是你困惑的部分：</b><br>1. <b>对等 (Peering)</b>: 注意绿色虚线。区域网 1 和 2 发现流量很大，不想经过上层收费的全球 ISP，于是直接拉了一根线私聊（免费/省钱）。<br>2. <b>IXP (黄色点)</b>: 第三方建立的'交换中心'，大家都可以接进来，方便多方互联。<br>3. <b>多宿 (Multi-homing)</b>: 看接入网 C，它同时连接了两个上级，为了防止断网。";
+
+                const g1 = { id: "g1", type: "global", label: "Global A" };
+                const g2 = { id: "g2", type: "global", label: "Global B" };
+                const r1 = { id: "r1", type: "regional", label: "区域 1" };
+                const r2 = { id: "r2", type: "regional", label: "区域 2" };
+                const ixp = { id: "ixp", type: "ixp", label: "IXP" };
+
+                nodes = [g1, g2, r1, r2, ixp, ...accessNets];
+
+                // 正常层级连接
+                links.push({ source: "r1", target: "g1" }, { source: "r2", target: "g2" }, { source: "g1", target: "g2" });
+                links.push({ source: "a1", target: "r1" }, { source: "a2", target: "r1" });
+                links.push({ source: "a4", target: "r2" }, { source: "a5", target: "r2" }, { source: "a6", target: "r2" });
+
+                // **关键点 1: 多宿 (Multi-homing)**
+                // 用户 C 同时连接 r1 和 r2
+                links.push({ source: "a3", target: "r1" }); 
+                links.push({ source: "a3", target: "r2" });
+
+                // **关键点 2: 对等 (Peering)**
+                // 区域 1 和 区域 2 直接连接，不走上面
+                links.push({ source: "r1", target: "r2", type: "peering" });
+
+                // **关键点 3: IXP**
+                // 假设 Global B 和 区域 1 也想通过 IXP 交换数据
+                links.push({ source: "g2", target: "ixp", type: "peering" });
+                links.push({ source: "r1", target: "ixp", type: "peering" });
+
+            } else if (stage === 5) {
+                // 结构 5: 内容提供商网络
+                document.getElementById("stage-title").innerText = "结构 5: 内容提供商网络 (CPN)";
+                document.getElementById("stage-desc").innerText = "谷歌、微软等巨头为了速度，自己架设了全球光纤网（红色节点）。它们尽量'绕过'最高层的 Tier-1 ISP，直接把线插到区域 ISP 甚至接入网里，把内容推到离用户最近的地方。";
+
+                const g1 = { id: "g1", type: "global", label: "Global A" };
+                const g2 = { id: "g2", type: "global", label: "Global B" };
+                const r1 = { id: "r1", type: "regional", label: "区域 1" };
+                const r2 = { id: "r2", type: "regional", label: "区域 2" };
+                const cpn = { id: "cpn", type: "cpn", label: "Google/CPN" }; // 内容提供商
+
+                nodes = [g1, g2, r1, r2, cpn, ...accessNets];
+
+                // 传统骨干网
+                links.push({ source: "r1", target: "g1" }, { source: "r2", target: "g2" }, { source: "g1", target: "g2" });
+                links.push({ source: "a1", target: "r1" }, { source: "a2", target: "r1" }, { source: "a3", target: "r1" });
+                links.push({ source: "a4", target: "r2" }, { source: "a5", target: "r2" }); // a6 还没连
+
+                // **关键点: CPN 的渗透**
+                // Google 直接连接 Tier-1
+                links.push({ source: "cpn", target: "g1", type: "peering" });
+                // Google 直接连接 区域 ISP (绕过 Tier-1)
+                links.push({ source: "cpn", target: "r2", type: "peering" });
+                // Google 直接连接 接入网 (a6) (极度贴近用户)
+                links.push({ source: "cpn", target: "a6", type: "peering" });
+
+            }
+
+            render();
+        }
+
+        // 初始化
+        initSimulation();
+        setStage(1);
+
+    </script>
+</body>
+</html>

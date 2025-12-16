@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>传输时延 vs 传播时延 交互演示</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h2 { color: #333; }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 800px;
+            text-align: center;
+        }
+
+        /* 模拟区域 */
+        .simulation-area {
+            position: relative;
+            height: 150px;
+            background-color: #e9ecef;
+            margin: 20px 0;
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            border: 2px solid #ced4da;
+        }
+
+        .host {
+            width: 80px;
+            height: 100%;
+            background-color: #343a40;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            z-index: 2;
+            position: absolute;
+        }
+        #sender { left: 0; border-right: 5px solid #28a745; }
+        #receiver { right: 0; border-left: 5px solid #dc3545; }
+
+        /* 链路 (Link) */
+        .link {
+            position: absolute;
+            left: 80px;
+            right: 80px;
+            height: 4px;
+            background-color: #adb5bd;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
+        /* 比特 (Bits) */
+        .bit {
+            width: 15px;
+            height: 25px;
+            background-color: #007bff;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 2px;
+            opacity: 0.9;
+        }
+
+        /* 控制面板 */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .control-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        label { display: block; margin-bottom: 10px; font-weight: bold; }
+        input[type=range] { width: 100%; }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* 仪表盘 */
+        .metrics {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .metric-box {
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            width: 45%;
+        }
+        .metric-trans { background-color: #28a745; } /* 绿色 */
+        .metric-prop { background-color: #17a2b8; } /* 蓝色 */
+
+        .status-text {
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+            height: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h2>网络时延可视化：传输 vs 传播</h2>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>1. 带宽 (Bandwidth) - 影响传输时延</label>
+                <input type="range" id="bandwidth" min="1" max="20" value="5">
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    <span id="bw-label">低带宽 (慢速吐比特)</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>2. 链路长度 (Distance) - 影响传播时延</label>
+                <input type="range" id="distance" min="1" max="10" value="5">
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    <span id="dist-label">中等距离</span>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="startPacket()" id="btn-send">发送数据包 (包含 10 个比特)</button>
+        <div class="status-text" id="status">准备就绪...</div>
+
+        <div class="simulation-area">
+            <div class="host" id="sender">发送端</div>
+            <div class="link"></div>
+            <div class="host" id="receiver">接收端</div>
+            </div>
+
+        <div class="metrics">
+            <div class="metric-box metric-trans">
+                <strong>传输时延 (Transmission Delay)</strong><br>
+                定义：把数据推上路的时间<br>
+                状态：<span id="trans-timer">0.00s</span>
+            </div>
+            <div class="metric-box metric-prop">
+                <strong>传播时延 (Propagation Delay)</strong><br>
+                定义：在路上跑的时间<br>
+                状态：<span id="prop-timer">0.00s</span>
+            </div>
+        </div>
+        
+        <p style="text-align: left; margin-top: 20px; font-size: 14px; color: #555; line-height: 1.6;">
+            <strong>如何理解动画：</strong><br>
+            1. 观察发送端出口：绿色闪烁表示正在产生比特。这个过程持续的时间就是<b>传输时延</b>。<br>
+            2. 观察中间路程：蓝色小方块飞过灰色线条的时间，就是<b>传播时延</b>。<br>
+            3. 如果把带宽拉满，距离拉最长：你会看到比特瞬间全部出来，但要在路上跑很久（类似 CS2 玩美服）。<br>
+            4. 如果带宽最低，距离最短：比特一个一个慢慢挤出来，但一出来就立马到了（类似下载大文件）。
+        </p>
+    </div>
+
+    <script>
+        const bandwidthSlider = document.getElementById('bandwidth');
+        const distanceSlider = document.getElementById('distance');
+        const btn = document.getElementById('btn-send');
+        const statusDiv = document.getElementById('status');
+        const simulationArea = document.querySelector('.simulation-area');
+        
+        // 状态标签更新
+        bandwidthSlider.oninput = function() {
+            const val = this.value;
+            let text = "中等带宽";
+            if(val < 5) text = "极低带宽 (就像用吸管喝水)";
+            else if(val > 15) text = "极高带宽 (就像倒水)";
+            document.getElementById('bw-label').innerText = text;
+        }
+
+        distanceSlider.oninput = function() {
+            const val = this.value;
+            let text = "中等距离";
+            if(val < 3) text = "极短距离 (局域网)";
+            else if(val > 8) text = "极长距离 (跨洋光缆)";
+            document.getElementById('dist-label').innerText = text;
+        }
+
+        function startPacket() {
+            // 锁定按钮
+            btn.disabled = true;
+            statusDiv.innerText = "正在发送数据包...";
+            
+            // 清理旧的 bit
+            document.querySelectorAll('.bit').forEach(e => e.remove());
+
+            // 参数获取
+            // 带宽越大，间隔(interval)越小
+            const bandwidthVal = parseInt(bandwidthSlider.value);
+            const interval = 1000 / bandwidthVal; // ms between bits
+            
+            // 距离越大，飞行时间(duration)越长
+            const distanceVal = parseInt(distanceSlider.value);
+            const travelTime = distanceVal * 500; // ms to travel across
+
+            const totalBits = 10;
+            let bitsSent = 0;
+            let startTime = Date.now();
+            let lastBitExitTime = 0;
+
+            // 传输时延计时器更新
+            let transIntervalTimer = setInterval(() => {
+                let now = Date.now();
+                if (bitsSent < totalBits) {
+                    let elapsed = (now - startTime) / 1000;
+                    document.getElementById('trans-timer').innerText = elapsed.toFixed(2) + "s (累积中...)";
+                } else {
+                    clearInterval(transIntervalTimer);
+                }
+            }, 50);
+            
+            // 传播时延显示（这是一个固定值，取决于物理距离）
+            document.getElementById('prop-timer').innerText = (travelTime / 1000).toFixed(2) + "s (单比特飞行时间)";
+
+            // 发送循环
+            const sendLoop = setInterval(() => {
+                if (bitsSent >= totalBits) {
+                    clearInterval(sendLoop);
+                    lastBitExitTime = Date.now();
+                    document.getElementById('trans-timer').innerText = ((lastBitExitTime - startTime)/1000).toFixed(2) + "s (最终结果)";
+                    return;
+                }
+
+                createAndMoveBit(travelTime, bitsSent === totalBits - 1);
+                bitsSent++;
+                
+                // 视觉反馈：发送端闪烁
+                const sender = document.getElementById('sender');
+                sender.style.backgroundColor = '#218838';
+                setTimeout(() => sender.style.backgroundColor = '#343a40', 100);
+
+            }, interval);
+        }
+
+        function createAndMoveBit(duration, isLast) {
+            const bit = document.createElement('div');
+            bit.className = 'bit';
+            // 初始位置：发送端右边缘 (80px)
+            bit.style.left = '80px'; 
+            simulationArea.appendChild(bit);
+
+            // 动画：移动到右侧 (总宽度800 - 接收端80 - bit宽15 = 705)
+            // 这里的动画是线性的，代表在物理介质中的传播
+            const start = Date.now();
+            
+            const anim = bit.animate([
+                { left: '80px' },
+                { left: '705px' }
+            ], {
+                duration: duration,
+                easing: 'linear',
+                fill: 'forwards'
+            });
+
+            anim.onfinish = () => {
+                bit.style.backgroundColor = '#dc3545'; // 到达变红
+                bit.style.opacity = '0.5';
+                if (isLast) {
+                    btn.disabled = false;
+                    statusDiv.innerText = "数据包接收完毕。";
+                }
+            };
+        }
+    </script>
+</body>
+</html>

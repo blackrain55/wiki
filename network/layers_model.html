@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五层协议栈：封装与解封装交互演示</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h2 { color: #333; }
+
+        /* 主舞台 */
+        .stage {
+            display: flex;
+            justify-content: space-between;
+            width: 900px;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        /* 协议栈柱子 */
+        .stack {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+            gap: 10px;
+        }
+
+        .layer {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-weight: bold;
+            color: white;
+            transition: all 0.3s;
+            opacity: 0.3;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .layer.active {
+            opacity: 1;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        /* 颜色定义 */
+        .l5 { background-color: #e83e8c; } /* 应用层 - 粉 */
+        .l4 { background-color: #6f42c1; } /* 运输层 - 紫 */
+        .l3 { background-color: #0d6efd; } /* 网络层 - 蓝 */
+        .l2 { background-color: #ffc107; color: black; } /* 链路层 - 黄 */
+        .l1 { background-color: #198754; } /* 物理层 - 绿 */
+
+        /* 数据包 (Packet) */
+        #packet {
+            position: absolute;
+            background: white;
+            border: 2px solid #333;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            width: 120px;
+            text-align: center;
+            transition: all 0.6s ease-in-out;
+            z-index: 100;
+            top: 0;
+            left: 40px; /* Align with Sender */
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* 数据包内部的头部块 */
+        .header-block {
+            padding: 5px;
+            margin: 0 1px;
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+            display: none; /* 初始隐藏 */
+            animation: fadeIn 0.5s forwards;
+        }
+        
+        .data-payload {
+            padding: 5px;
+            background: #e83e8c;
+            color: white;
+            flex-grow: 1;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+        /* 物理层的波形动画 */
+        #waveform {
+            position: absolute;
+            bottom: 20px;
+            left: 200px;
+            width: 0;
+            height: 40px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40'%3E%3Cpath d='M0,20 Q10,0 20,20 T40,20 T60,20 T80,20 T100,20' stroke='limegreen' stroke-width='3' fill='none' /%3E%3C/svg%3E");
+            background-repeat: repeat-x;
+            background-size: 40px 40px;
+            transition: width 1s linear;
+            display: none;
+        }
+
+        /* 说明文字区域 */
+        .info-panel {
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-left: 5px solid #0d6efd;
+            width: 800px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            min-height: 100px;
+        }
+        .info-title { font-weight: bold; font-size: 18px; margin-bottom: 10px; display: block;}
+        .ee-note { font-size: 13px; color: #666; margin-top: 8px; font-style: italic; background: #f8f9fa; padding: 5px; border-radius: 4px;}
+
+        /* 控制按钮 */
+        .controls { margin-top: 20px; }
+        button {
+            padding: 12px 30px; font-size: 16px; cursor: pointer;
+            background-color: #0d6efd; color: white; border: none; border-radius: 5px;
+            transition: 0.2s;
+        }
+        button:hover { background-color: #0b5ed7; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+    </style>
+</head>
+<body>
+
+    <h2>因特网五层模型：数据漫游记</h2>
+
+    <div class="stage">
+        <div class="stack" id="sender-stack">
+            <div style="text-align: center; margin-bottom: 10px; font-weight: bold;">发送主机 (Sender)</div>
+            <div class="layer l5" id="s-l5">5. 应用层</div>
+            <div class="layer l4" id="s-l4">4. 运输层</div>
+            <div class="layer l3" id="s-l3">3. 网络层</div>
+            <div class="layer l2" id="s-l2">2. 链路层</div>
+            <div class="layer l1" id="s-l1">1. 物理层</div>
+        </div>
+
+        <div id="waveform"></div>
+
+        <div class="stack" id="receiver-stack">
+            <div style="text-align: center; margin-bottom: 10px; font-weight: bold;">接收主机 (Receiver)</div>
+            <div class="layer l5" id="r-l5">5. 应用层</div>
+            <div class="layer l4" id="r-l4">4. 运输层</div>
+            <div class="layer l3" id="r-l3">3. 网络层</div>
+            <div class="layer l2" id="r-l2">2. 链路层</div>
+            <div class="layer l1" id="r-l1">1. 物理层</div>
+        </div>
+
+        <div id="packet">
+            <div class="data-payload">Data: "你好"</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="nextStep()" id="btn-next">下一步 (Start)</button>
+        <button onclick="reset()" style="background-color: #6c757d; margin-left: 10px;">重置</button>
+    </div>
+
+    <div class="info-panel">
+        <span class="info-title" id="info-title">准备就绪</span>
+        <span id="info-desc">点击“下一步”开始观察数据如何从应用层一层层封装发送。</span>
+        <div class="ee-note" id="ee-note">EE 视角备注：等待开始...</div>
+    </div>
+
+    <script>
+        let step = 0;
+        const packet = document.getElementById('packet');
+        const waveform = document.getElementById('waveform');
+        const btn = document.getElementById('btn-next');
+        const title = document.getElementById('info-title');
+        const desc = document.getElementById('info-desc');
+        const note = document.getElementById('ee-note');
+
+        // 定义每一步的状态
+        // 0: Init, 1-5: Encapsulation, 6: Transmission, 7-11: Decapsulation
+        
+        function nextStep() {
+            step++;
+            updateUI();
+        }
+
+        function reset() {
+            step = 0;
+            // 清理 Packet 内容
+            packet.innerHTML = '<div class="data-payload">Data: "你好"</div>';
+            packet.style.width = '120px';
+            packet.style.opacity = '1';
+            packet.style.display = 'flex';
+            waveform.style.display = 'none';
+            waveform.style.width = '0';
+            updateUI();
+        }
+
+        function highlightLayer(side, layerNum) {
+            // 清除所有高亮
+            document.querySelectorAll('.layer').forEach(l => l.classList.remove('active'));
+            // 添加当前高亮
+            if(side && layerNum) {
+                document.getElementById(`${side}-l${layerNum}`).classList.add('active');
+            }
+        }
+
+        function addHeader(colorClass, text, isTail = false) {
+            const div = document.createElement('div');
+            div.className = `header-block ${colorClass}`;
+            div.innerText = text;
+            div.style.backgroundColor = getComputedStyle(document.querySelector(`.${colorClass}`)).backgroundColor;
+            
+            if (isTail) {
+                packet.appendChild(div); // 加在尾部
+            } else {
+                packet.insertBefore(div, packet.firstChild); // 加在头部
+            }
+            
+            // 增加宽度视觉效果
+            let currentWidth = parseInt(packet.style.width || 120);
+            packet.style.width = (currentWidth + 60) + 'px';
+            div.style.display = 'block';
+        }
+
+        function removeHeader(isTail = false) {
+             // 减少宽度
+            let currentWidth = parseInt(packet.style.width || 120);
+            packet.style.width = (currentWidth - 60) + 'px';
+
+            if (isTail) {
+                if (packet.lastChild) packet.removeChild(packet.lastChild);
+            } else {
+                if (packet.firstChild) packet.removeChild(packet.firstChild);
+            }
+        }
+
+        function updateUI() {
+            switch(step) {
+                case 1: // 应用层
+                    highlightLayer('s', 5);
+                    packet.style.top = '30px'; // Align L5
+                    packet.style.left = '40px';
+                    title.innerText = "1. 应用层 (发送端)";
+                    desc.innerText = "用户在微信输入“你好”。应用层将用户数据格式化。";
+                    note.innerText = "EE视角：这就是原始信号源（Source Information）。";
+                    btn.innerText = "下一步：进入运输层";
+                    break;
+
+                case 2: // 运输层 - 加端口
+                    highlightLayer('s', 4);
+                    packet.style.top = '100px'; // Align L4
+                    addHeader('l4', 'Port:80');
+                    title.innerText = "2. 运输层 (封装)";
+                    desc.innerText = "【关键】加上了“端口号”。这标志着数据属于哪个应用程序（进程）。这里还没有IP地址，所以它只知道是给“软件”的，不知道是给哪台电脑的。";
+                    note.innerText = "EE视角：这就像多路复用（Multiplexing），给数据打上通道标签。";
+                    btn.innerText = "下一步：进入网络层";
+                    break;
+
+                case 3: // 网络层 - 加IP
+                    highlightLayer('s', 3);
+                    packet.style.top = '170px'; // Align L3
+                    addHeader('l3', 'IP:192...');
+                    title.innerText = "3. 网络层 (封装)";
+                    desc.innerText = "加上了“IP地址”。现在数据包知道要发给地球上的哪台电脑了（Host-to-Host）。";
+                    note.innerText = "EE视角：这是全局寻址。";
+                    btn.innerText = "下一步：进入链路层";
+                    break;
+
+                case 4: // 链路层 - 加MAC和FCS
+                    highlightLayer('s', 2);
+                    packet.style.top = '240px'; // Align L2
+                    addHeader('l2', 'MAC Head'); // 加头
+                    addHeader('l2', 'FCS/CRC', true); // 加尾
+                    title.innerText = "4. 链路层 (封装)";
+                    desc.innerText = "【关键】这一层把网络层的包再次包装，加上帧头（MAC地址）和帧尾（CRC校验）。它负责把数据安全地送到下一个路由器（下一跳）。";
+                    note.innerText = "EE视角：CRC校验（FCS）就像奇偶校验，确保这串数据在传输中没有比特翻转。";
+                    btn.innerText = "下一步：进入物理层";
+                    break;
+
+                case 5: // 物理层 - 变成波形
+                    highlightLayer('s', 1);
+                    packet.style.top = '310px'; // Align L1
+                    packet.style.opacity = '0.2'; // 虚化，表示变成信号了
+                    title.innerText = "5. 物理层 (发送)";
+                    desc.innerText = "【关键】数据包在这一层“消失”了，变成了电信号/光信号/无线电波。物理层不关心内容，只负责把 0 和 1 发射出去。";
+                    note.innerText = "EE视角：DAC 启动！开始调制（QAM/PSK），驱动天线或光模块。";
+                    btn.innerText = "下一步：传输中...";
+                    break;
+
+                case 6: // 传输
+                    highlightLayer(null, null); // 无层级高亮
+                    waveform.style.display = 'block';
+                    // 动画：波形伸长
+                    setTimeout(() => { waveform.style.width = '500px'; }, 100);
+                    
+                    // 隐形移动 packet 到右边
+                    packet.style.transition = 'left 1s linear';
+                    packet.style.left = '740px'; 
+                    
+                    title.innerText = "传输介质";
+                    desc.innerText = "信号在光纤、铜线或空气中传播（受传播时延影响）。";
+                    note.innerText = "EE视角：电磁波在介质中传播，伴随着衰减和噪声干扰。";
+                    btn.innerText = "下一步：接收端物理层";
+                    break;
+
+                case 7: // 接收端 物理层
+                    highlightLayer('r', 1);
+                    waveform.style.display = 'none'; // 波形消失
+                    packet.style.opacity = '1'; // 变回实体
+                    packet.style.top = '310px'; 
+                    title.innerText = "1. 物理层 (接收端)";
+                    desc.innerText = "网卡接收到电波，解调，还原成 0 和 1 的比特流。";
+                    note.innerText = "EE视角：ADC 采样，解调，时钟恢复，还原比特。";
+                    btn.innerText = "下一步：交付链路层";
+                    break;
+
+                case 8: // 接收端 链路层
+                    highlightLayer('r', 2);
+                    packet.style.top = '240px';
+                    // 移除 L2 头尾
+                    setTimeout(() => {
+                        removeHeader(); // 去头
+                        removeHeader(true); // 去尾
+                    }, 300);
+                    
+                    title.innerText = "2. 链路层 (解封装)";
+                    desc.innerText = "检查 CRC 校验。如果数据没坏，就拆掉 MAC 头，取出里面的网络包。";
+                    note.innerText = "EE视角：如果没有误码，就剥离 Frame 结构，提取 Payload。";
+                    btn.innerText = "下一步：交付网络层";
+                    break;
+
+                case 9: // 接收端 网络层
+                    highlightLayer('r', 3);
+                    packet.style.top = '170px';
+                    setTimeout(() => removeHeader(), 300); // 去掉 IP
+                    title.innerText = "3. 网络层 (解封装)";
+                    desc.innerText = "检查 IP 地址。确认“这是发给我的电脑的”，拆掉 IP 头。";
+                    note.innerText = "EE视角：确认地址匹配。";
+                    btn.innerText = "下一步：交付运输层";
+                    break;
+
+                case 10: // 接收端 运输层
+                    highlightLayer('r', 4);
+                    packet.style.top = '100px';
+                    setTimeout(() => removeHeader(), 300); // 去掉 Port
+                    title.innerText = "4. 运输层 (解封装)";
+                    desc.innerText = "【关键】检查端口号。发现是 80 端口，于是知道“这个数据是给浏览器进程的”。";
+                    note.innerText = "EE视角：解复用（Demultiplexing），将数据路由到正确的内部通道。";
+                    btn.innerText = "下一步：交付应用层";
+                    break;
+
+                case 11: // 接收端 应用层
+                    highlightLayer('r', 5);
+                    packet.style.top = '30px';
+                    title.innerText = "5. 应用层 (完成)";
+                    desc.innerText = "应用程序收到原始数据：“你好”。通信完成。";
+                    note.innerText = "EE视角：屏幕显示像素，用户看到信息。";
+                    btn.innerText = "重置演示";
+                    step = -1; // 让下一次点击变成 Reset 后的效果
+                    break;
+
+                default:
+                    reset();
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>

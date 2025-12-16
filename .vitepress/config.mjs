@@ -44,7 +44,7 @@ export default defineConfig({
         {
           text: '网络技术研究',
           items: [
-            { text: 'GFW原理', link: '/network/gfw' }
+            { text: '计算机网络基本', link: '/network/Computer Networking' }
           ]
         }
       ]
