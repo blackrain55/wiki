@@ -102,13 +102,13 @@
 
 <iframe 
     src="/wiki/network/delay_simulation.html" 
-    style="width: 100%; height: 800px; border: none;" 
+    style="width: 140%; height: 800px; border: none;" 
     scrolling="no">
 </iframe>
 
 <iframe 
     src="/wiki/network/internet_structure.html" 
-    style="width: 100%; height: 1000px; border: none;" 
+    style="width: 140%; height: 800px; border: none;" 
     scrolling="no">
 </iframe>
 
@@ -116,12 +116,12 @@
 
 <iframe 
     src="/wiki/network/network.html" 
-    style="width: 100%; height: 800px; border: none;" 
+    style="width: 140%; height: 650px; border: none;" 
     scrolling="no">
 </iframe>
 
 <iframe 
     src="/wiki/network/layers_model.html" 
-    style="width: 100%; height: 800px; border: none;" 
+    style="width: 140%; height: 800px; border: none;" 
     scrolling="no">
 </iframe>
