@@ -23,6 +23,7 @@ export default defineConfig({
           text: '逻辑学导论',
           items: [
             { text: '第一章：逻辑学基本概念', link: '/logic/logic1_2025-12-12' },
+            { text: '第二章：逻辑学联系', link:'/logic/logic1_2025-12-17'},            
             // 以后在这里加：{ text: '第二章：定义', link: '/logic/chapter2' }
           ]
         }
