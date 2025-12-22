@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid({
   title: "TamTam Knowledge",
   description: "逻辑学 / 嵌入式Linux / 计算机网络",
   lang: 'zh-CN',  // 设置语言为中文
@@ -23,7 +24,7 @@ export default defineConfig({
           text: '逻辑学导论',
           items: [
             { text: '第一章：逻辑学基本概念', link: '/logic/logic1_2025-12-12' },
-            { text: '第二章：逻辑学联系', link:'/logic/logic2_2025-12-17'},            
+            { text: '第二章：逻辑学练习', link:'/logic/logic2_2025-12-17'},            
             // 以后在这里加：{ text: '第二章：定义', link: '/logic/chapter2' }
           ]
         }
